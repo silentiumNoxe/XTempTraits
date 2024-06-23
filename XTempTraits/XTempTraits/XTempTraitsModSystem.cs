@@ -5,33 +5,63 @@ using Vintagestory.API.Client;
 using Vintagestory.API.Server;
 using Vintagestory.API.Config;
 using Vintagestory.API.Common;
+using Vintagestory.API.Util;
 using Vintagestory.GameContent;
 
 namespace XTempTraits;
 
 public class XTempTraitsModSystem : ModSystem
 {
-    private const string TraitsConfPath = "config/traits.json";
+    private ICoreAPI api;
+    private ILogger log;
     private const string ExtraTraits = "extraTraits";
-    
+    private string[] TraitsConfPaths = {"game:config/traits.json", "config/traits.json"};
+
     private List<Trait> _traits = new();
     private Dictionary<string, Trait> _traitsByCode = new();
+    private Dictionary<string, Trait> _tempTraitsByCode = new();
 
+    //todo: write traits list to player attributes
+    
     public override void Start(ICoreAPI api)
     {
-        _traits = api.Assets.Get(TraitsConfPath).ToObject<List<Trait>>();
-        foreach (var trait in _traits)
-        {
-            _traitsByCode[trait.Code] = trait;
-        }
+        this.api = api;
+        log = api.Logger;
     }
 
     public override void StartServerSide(ICoreServerAPI api)
     {
         api.RegisterEntityBehaviorClass(EBehaviourTempTraits.Name, typeof(EBehaviourTempTraits));
+        api.Event.ServerRunPhase(EnumServerRunPhase.ModsAndConfigReady, LoadData);
     }
 
-    public override void StartClientSide(ICoreClientAPI api)
+    private void LoadData()
+    {
+        var list = new List<Trait>();
+
+        foreach (var path in TraitsConfPaths)
+        {
+            var ok = api.Assets.Exists(new AssetLocation(path));
+            if (!ok)
+            {
+                throw new ApplicationException("Expected config file - \""+path+"\" but not found");
+            }
+            var l = api.Assets.Get(path).ToObject<List<Trait>>();
+            list.AddRange(l);
+        }
+
+        _traits = list;
+        foreach (var trait in _traits)
+        {
+            _traitsByCode[trait.Code] = trait;
+            if (trait.IsTemp())
+            {
+                _tempTraitsByCode[trait.Code] = trait;
+            }
+        }
+    }
+
+    public override void StartClientSide(ICoreClientAPI capi)
     {
     }
 
@@ -84,14 +114,22 @@ public class XTempTraitsModSystem : ModSystem
         
         var list = new List<Trait>();
         var arr = player.WatchedAttributes.GetStringArray(ExtraTraits);
-        foreach (var x in arr)
+        foreach (var kv in player.Stats)
         {
-            var t = _traitsByCode[x];
-            if (t != null && t.IsTemp())
-            {
-                list.Add(t);
-            }
+            log.Debug($"STAT {kv.Key} : ${kv.Value}");
         }
+        foreach (var kv in player.WatchedAttributes)
+        {
+            log.Debug($"WATTR {kv.Key} : {kv.Value.ToJsonToken()}");
+        }
+        if (arr == null)
+        {
+            return list;
+        }
+        
+        log.Debug(string.Join(", ", arr));
+
+        list.AddRange(arr.Select(x => _traitsByCode[x]).Where(t => t != null && t.IsTemp()));
 
         return list;
     }
