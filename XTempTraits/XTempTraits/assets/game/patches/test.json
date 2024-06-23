@@ -1,0 +1,22 @@
+[
+  {
+    "file": "game:config/characterclasses",
+    "op": "replace",
+    "path": "/0/traits",
+    "value": ["test"]
+  },
+  
+  {
+    "file": "game:config/traits",
+    "op": "add",
+    "path": "/0/time",
+    "value": 2000
+  },
+
+  {
+    "file": "game:config/traits",
+    "op": "add",
+    "path": "/0/attributes/instantHealthDamage",
+    "value": 1.0
+  }
+]

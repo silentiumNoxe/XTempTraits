@@ -1,0 +1,10 @@
+[
+  {
+    "code": "sick",
+    "type": "negative",
+    "time": 2000,
+    "attributes": {
+      "instantHealthDamage": 2
+    }
+  }
+]
